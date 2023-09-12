@@ -1,7 +1,5 @@
-import React, { FC, useState, useContext, createContext } from "react";
-
-import classnames from "classnames/bind"
-import styles from "./Collapsible.module.scss"
+import React, { FC, useState, useContext, createContext, ButtonHTMLAttributes, HTMLAttributes } from "react";
+import classnames from "classnames"
 
 // setter default state for å gjøre typescript fornøyd
 const Context = createContext({
@@ -11,16 +9,18 @@ const Context = createContext({
   toggleOpen() { }
 });
 
-// forenkler styling ved hjelp av sass moduler
-const cx = classnames.bind(styles);
-
-// latskap for å gjøre ts happy
-type Props = {
-  [x: string]: any
+type BaseProps = {
+  as?: keyof HTMLElementTagNameMap
+  children?: React.ReactNode
+  className?: string
 }
 
-export const Root: FC<Props> = (props) => {
-  const { as = "div", children, isOpen = false, containerProps = {} } = props;
+type RootProps = {
+  isOpen?: boolean  
+} & BaseProps & HTMLAttributes<HTMLElement>
+/** Root noden initialiserer state for resten av barna */
+export const Root: FC<RootProps> = (props) => {
+  const { as = "div", children, isOpen = false, ...rest } = props;
 
   const [sharedState, setSharedState] = useState({
     isOpen,
@@ -33,48 +33,47 @@ export const Root: FC<Props> = (props) => {
     }
   })
 
-  return React.createElement(as, containerProps,
-    <div data-open={sharedState.isOpen} className={cx("root")}>
-      <Context.Provider value={sharedState}>
-        {children}
-      </Context.Provider>
-    </div>
+  return React.createElement(as, {
+    ...rest,
+    ["data-open"]: sharedState.isOpen,
+  },
+    <Context.Provider value={sharedState}>
+      {children}
+    </Context.Provider>
   )
 }
 
-export const Trigger: FC<Props> = (props) => {
-  const ctx = useContext(Context)
-  const { as = "h2", children, containerProps = {}, buttonProps = {} } = props
-  // const { triggerId, contentId, toggleOpen, isOpen } = useContext(Context)
+type TriggerProps = Omit<BaseProps, "as"> & ButtonHTMLAttributes<HTMLButtonElement>
+/** Trigger er kun en ustylet knapp som som har ansvar for å åpne/lukke collapsible componenten */
+export const Trigger: FC<TriggerProps> = (props) => {
+  const {children, ...rest} = props
+  const sharedState = useContext(Context)
 
-  // return React.createElement(as, {
-  //   className: cx("trigger__container", containerProps.className),
-  // },
   return <button
-    data-open={ctx.isOpen}
-    className={cx("trigger", buttonProps.className)}
-    id={ctx.triggerId}
-    aria-controls={ctx.contentId}
-    aria-expanded={ctx.isOpen}
-    onClick={ctx.toggleOpen}
+    {...rest}
+    data-open={sharedState.isOpen}
+    id={sharedState.triggerId}
+    className={classnames(props.className)}
+    aria-controls={sharedState.contentId}
+    aria-expanded={sharedState.isOpen}
+    onClick={sharedState.toggleOpen}
   >
     {children}
   </button>
-  // )
 }
 
-export const Content: FC<Props> = (props) => {
-  const { as = "div", children } = props
-
-  const ctx = useContext(Context)
-  // const { triggerId, contentId, isOpen } = useContext(Context)
+type ContentProps = BaseProps & HTMLAttributes<HTMLElement>
+export const Content: FC<ContentProps> = (props) => {
+  const { as = "div", children, ...rest } = props
+  const sharedState = useContext(Context)
 
   return React.createElement(as, {
-    ["data-open"]: ctx.isOpen,
+    ...rest,
     role: "region",
-    ["aria-labelledby"]: ctx.triggerId,
-    id: ctx.contentId,
-    hidden: !ctx.isOpen
+    ["data-open"]: sharedState.isOpen,
+    ["aria-labelledby"]: sharedState.triggerId,
+    id: sharedState.contentId,
+    hidden: !sharedState.isOpen,
   },
     children
   )
